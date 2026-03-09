@@ -19,12 +19,97 @@ from rag.ingest import ingest, is_ingested, list_docs, delete_doc
 from rag.retriever import retrieve
 from rag.answerer import answer
 
+# ── Constants ─────────────────────────────────────────────────────────────────
+BUNDLED_DIR = os.path.join(os.path.dirname(__file__), "data", "reports")
+MAX_UPLOAD_MB = 10
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Annual Report Q&A", page_icon="📄", layout="wide")
 
-# ── Auto-ingest bundled reports on startup ───────────────────────────────────
-BUNDLED_DIR = os.path.join(os.path.dirname(__file__), "data", "reports")
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.title("📄 Annual Report Q&A")
+    st.caption("Ask questions across indexed annual reports. Answers include page citations.")
 
+    st.divider()
+
+    # ── User API key ──────────────────────────────────────────────────────────
+    st.subheader("🔑 Your OpenAI API key (optional)")
+    st.caption(
+        "The app runs on a shared key with a usage limit. "
+        "Paste your own key below to use the app without restrictions."
+    )
+    user_key = st.text_input(
+        "OpenAI API key",
+        type="password",
+        placeholder="sk-...",
+        label_visibility="collapsed",
+    )
+    if user_key.strip():
+        os.environ["OPENAI_API_KEY"] = user_key.strip()
+        st.success("Using your API key for this session.", icon="✅")
+
+    st.divider()
+
+    # ── Indexed documents ─────────────────────────────────────────────────────
+    st.subheader("Indexed documents")
+    docs = list_docs()
+    if docs:
+        for doc in docs:
+            st.markdown(f"- **{doc['doc_name']}** ({doc['chunks']} chunks)")
+    else:
+        st.caption("No documents indexed yet.")
+
+    st.divider()
+
+    # ── Upload new PDFs ───────────────────────────────────────────────────────
+    st.subheader("Upload a report")
+    st.caption(f"PDF only · max {MAX_UPLOAD_MB} MB · uses your API key if provided, otherwise shared key")
+    uploaded = st.file_uploader("Add a PDF annual report", type="pdf", accept_multiple_files=True)
+    if uploaded:
+        for f in uploaded:
+            if f.size > MAX_UPLOAD_BYTES:
+                st.error(
+                    f"**{f.name}** is {f.size / 1024 / 1024:.1f} MB — exceeds the {MAX_UPLOAD_MB} MB limit. "
+                    "Please upload a smaller file or use a shorter extract of the report."
+                )
+                continue
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(f.read())
+                tmp_path = tmp.name
+            dest = os.path.join(BUNDLED_DIR, f.name)
+            os.replace(tmp_path, dest)
+            if not is_ingested(dest):
+                with st.spinner(f"Indexing {f.name}…"):
+                    n = ingest(dest)
+                st.toast(f"Indexed {f.name} ({n} chunks)", icon="✅")
+                st.rerun()
+
+    st.divider()
+
+    # ── Remove uploaded (non-bundled) docs ────────────────────────────────────
+    bundled_basenames = {
+        os.path.splitext(os.path.basename(p))[0]
+        for p in glob.glob(os.path.join(BUNDLED_DIR, "apple-*.pdf"))
+        + glob.glob(os.path.join(BUNDLED_DIR, "hsbc-*.pdf"))
+    }
+    user_docs = [d for d in docs if d["doc_name"] not in bundled_basenames]
+    if user_docs:
+        st.subheader("Remove uploaded reports")
+        for doc in user_docs:
+            if st.button(f"Remove {doc['doc_name']}", key=f"del_{doc['doc_name']}"):
+                delete_doc(doc["doc_name"])
+                pdf_path = os.path.join(BUNDLED_DIR, doc["doc_name"] + ".pdf")
+                if os.path.exists(pdf_path):
+                    os.remove(pdf_path)
+                st.rerun()
+
+    st.divider()
+    st.caption("Powered by GPT-4o-mini + ChromaDB + pdfplumber")
+
+# ── Auto-ingest bundled reports on startup ───────────────────────────────────
 def _ingest_bundled():
     pdfs = glob.glob(os.path.join(BUNDLED_DIR, "*.pdf"))
     pending = [p for p in pdfs if not is_ingested(p)]
@@ -43,7 +128,7 @@ def _ingest_bundled():
 
     for i, pdf in enumerate(pending):
         name = os.path.basename(pdf)
-        progress.progress((i) / total, text=f"Step {i+1}/{total} — Parsing and embedding **{name}**…")
+        progress.progress(i / total, text=f"Step {i+1}/{total} — Parsing and embedding **{name}**…")
         n = ingest(pdf)
         progress.progress((i + 1) / total, text=f"✅ {name} indexed ({n} pages)")
 
@@ -51,70 +136,6 @@ def _ingest_bundled():
     st.rerun()
 
 _ingest_bundled()
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.title("📄 Annual Report Q&A")
-    st.caption("Ask questions across indexed annual reports. Answers include page citations.")
-
-    st.divider()
-
-    # Indexed documents
-    st.subheader("Indexed documents")
-    docs = list_docs()
-    if docs:
-        for doc in docs:
-            st.markdown(f"- **{doc['doc_name']}** ({doc['chunks']} chunks)")
-    else:
-        st.caption("No documents indexed yet.")
-
-    st.divider()
-
-    # Upload new PDFs
-    st.subheader("Upload a report")
-    uploaded = st.file_uploader("Add a PDF annual report", type="pdf", accept_multiple_files=True)
-    if uploaded:
-        for f in uploaded:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                tmp.write(f.read())
-                tmp_path = tmp.name
-            # Use original filename as doc name
-            dest = os.path.join(BUNDLED_DIR, f.name)
-            os.replace(tmp_path, dest)
-            if not is_ingested(dest):
-                with st.spinner(f"Indexing {f.name}…"):
-                    n = ingest(dest)
-                st.toast(f"Indexed {f.name} ({n} chunks)", icon="✅")
-                st.rerun()
-
-    st.divider()
-
-    # Delete uploaded (non-bundled) docs
-    bundled_names = {
-        os.path.splitext(os.path.basename(p))[0]
-        for p in glob.glob(os.path.join(BUNDLED_DIR, "*.pdf"))
-        if p in [os.path.join(BUNDLED_DIR, pdf) for pdf in os.listdir(BUNDLED_DIR)]
-    }
-    # Simpler: list docs that aren't in the bundled set
-    bundled_basenames = {
-        os.path.splitext(os.path.basename(p))[0]
-        for p in glob.glob(os.path.join(BUNDLED_DIR, "apple-*.pdf"))
-        + glob.glob(os.path.join(BUNDLED_DIR, "hsbc-*.pdf"))
-    }
-    user_docs = [d for d in docs if d["doc_name"] not in bundled_basenames]
-    if user_docs:
-        st.subheader("Remove uploaded reports")
-        for doc in user_docs:
-            if st.button(f"Remove {doc['doc_name']}", key=f"del_{doc['doc_name']}"):
-                delete_doc(doc["doc_name"])
-                # Also delete the file
-                pdf_path = os.path.join(BUNDLED_DIR, doc["doc_name"] + ".pdf")
-                if os.path.exists(pdf_path):
-                    os.remove(pdf_path)
-                st.rerun()
-
-    st.divider()
-    st.caption("Powered by GPT-4o-mini + ChromaDB + pdfplumber")
 
 # ── Main area ─────────────────────────────────────────────────────────────────
 st.header("Ask a question")
