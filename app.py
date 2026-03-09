@@ -65,14 +65,15 @@ with st.sidebar:
 
     # ── Upload new PDFs ───────────────────────────────────────────────────────
     st.subheader("Upload a report")
-    st.caption(f"PDF only · max {MAX_UPLOAD_MB} MB · uses your API key if provided, otherwise shared key")
+    st.caption(f"PDF only · max {MAX_UPLOAD_MB} MB with shared key · unlimited with your own key")
     uploaded = st.file_uploader("Add a PDF annual report", type="pdf", accept_multiple_files=True)
     if uploaded:
+        using_own_key = bool(user_key.strip())
         for f in uploaded:
-            if f.size > MAX_UPLOAD_BYTES:
+            if not using_own_key and f.size > MAX_UPLOAD_BYTES:
                 st.error(
-                    f"**{f.name}** is {f.size / 1024 / 1024:.1f} MB — exceeds the {MAX_UPLOAD_MB} MB limit. "
-                    "Please upload a smaller file or use a shorter extract of the report."
+                    f"**{f.name}** is {f.size / 1024 / 1024:.1f} MB — exceeds the {MAX_UPLOAD_MB} MB limit "
+                    "for the shared API key. Add your own OpenAI key above to upload larger files."
                 )
                 continue
 
