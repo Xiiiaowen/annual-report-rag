@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+# Streamlit Cloud: inject secrets into os.environ so rag/ modules can read them
+if "OPENAI_API_KEY" in st.secrets:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
 from rag.ingest import ingest, is_ingested, list_docs, delete_doc
 from rag.retriever import retrieve
 from rag.answerer import answer
