@@ -33,7 +33,8 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 ## Features
 
 - **Pre-loaded reports** — Apple and HSBC annual reports indexed on startup; demo works immediately
-- **Upload any PDF** — add your own annual reports via the sidebar
+- **Upload any PDF** — add your own annual reports via the sidebar; max 10 MB with the shared key, unlimited with your own key
+- **Bring your own API key** — paste your OpenAI key in the sidebar to use the app without restrictions and avoid shared key limits
 - **Page-level citations** — every answer shows which document and page each fact came from
 - **Multi-document retrieval** — questions are answered across all indexed reports simultaneously
 - **Section-aware chunking** — pages are the natural unit for annual reports; very long pages are split in half, both halves tagged with the same page number
