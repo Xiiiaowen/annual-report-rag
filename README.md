@@ -4,6 +4,8 @@ A RAG (Retrieval-Augmented Generation) app that lets you ask natural-language qu
 
 Pre-loaded with Apple and HSBC annual reports. Upload your own PDFs to query any report.
 
+**[▶ Live Demo](https://annual-report-rag-l8aogwvfxwzneatnebkguj.streamlit.app/)**
+
 ---
 
 ## How It Works
