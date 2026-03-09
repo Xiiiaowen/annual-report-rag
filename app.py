@@ -27,11 +27,28 @@ BUNDLED_DIR = os.path.join(os.path.dirname(__file__), "data", "reports")
 
 def _ingest_bundled():
     pdfs = glob.glob(os.path.join(BUNDLED_DIR, "*.pdf"))
-    for pdf in pdfs:
-        if not is_ingested(pdf):
-            with st.spinner(f"Indexing {os.path.basename(pdf)}…"):
-                n = ingest(pdf)
-                st.toast(f"Indexed {os.path.basename(pdf)} ({n} chunks)", icon="✅")
+    pending = [p for p in pdfs if not is_ingested(p)]
+    if not pending:
+        return
+
+    st.info(
+        "**First visitor since the app last slept — indexing reports now.**\n\n"
+        "Streamlit Cloud puts apps to sleep when idle. On wake-up, the vector store is "
+        "rebuilt by splitting each PDF into pages, embedding them with OpenAI, and storing "
+        "them in ChromaDB. This takes ~20–40 seconds and happens once per session."
+    )
+
+    progress = st.progress(0, text="Starting…")
+    total = len(pending)
+
+    for i, pdf in enumerate(pending):
+        name = os.path.basename(pdf)
+        progress.progress((i) / total, text=f"Step {i+1}/{total} — Parsing and embedding **{name}**…")
+        n = ingest(pdf)
+        progress.progress((i + 1) / total, text=f"✅ {name} indexed ({n} pages)")
+
+    progress.empty()
+    st.rerun()
 
 _ingest_bundled()
 
