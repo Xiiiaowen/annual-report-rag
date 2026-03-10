@@ -36,9 +36,10 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Upload any PDF** — add your own annual reports via the sidebar; max 10 MB with the shared key, unlimited with your own key
 - **Bring your own API key** — paste your OpenAI key in the sidebar to use the app without restrictions and avoid shared key limits
 - **Streaming responses** — answers stream token by token as the LLM generates them, so results appear immediately rather than waiting for the full response
+- **Query rewriting** — before retrieval, GPT-4o-mini rewrites the question to expand financial synonyms (e.g. "net income" → "net income profit for the year net profit earnings") and resolve follow-up references using chat history; the rewritten query is shown under the answer for transparency
 - **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
 - **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
-- **Score threshold filtering** — retrieved chunks with cosine similarity below 0.30 are discarded before prompting the LLM, reducing noise and hallucination on off-topic questions; the top chunk is always kept as a fallback
+- **Score threshold filtering** — retrieved chunks with cosine similarity below 0.30 are discarded before prompting the LLM; if no chunks pass, the app returns "no relevant content found" instead of hallucinating an answer
 - **Page-level citations** — every answer shows which document, page, and relevance score each fact came from
 - **Smart multi-document retrieval** — regular questions search across all docs; comparison questions (e.g. "How do Apple and HSBC differ?") automatically retrieve from each document independently to guarantee balanced representation
 - **Section-aware chunking with overlap** — pages are the natural unit for annual reports; very long pages are split in half; the last 200 characters of each page's plain text are prepended to the next page's chunk so sentences and numbers that span a page boundary are not lost
