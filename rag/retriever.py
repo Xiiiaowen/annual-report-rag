@@ -23,8 +23,6 @@ def _embed_query(query: str) -> list[float]:
     return resp.data[0].embedding
 
 
-MIN_SCORE = 0.20  # chunks below this cosine similarity are considered off-topic
-
 _REWRITE_SYSTEM = (
     "You are a search query optimizer for financial annual reports. "
     "Rewrite the user's question into the best possible search query for retrieving "
@@ -67,7 +65,6 @@ def rewrite_query(question: str, history: list[dict] | None = None) -> str:
 def retrieve(query: str, k: int = 5) -> list[dict]:
     """
     Embed the query and return the top-k most similar chunks across all docs.
-    Chunks with score < MIN_SCORE are dropped; returns empty list if none pass.
     Each result: {text, doc_name, page_num, source, score}
     """
     query_embedding = _embed_query(query)
@@ -92,14 +89,13 @@ def retrieve(query: str, k: int = 5) -> list[dict]:
             "score": round(1 - distance, 3),
         })
 
-    return [c for c in chunks if c["score"] >= MIN_SCORE]
+    return chunks
 
 
 def retrieve_per_doc(query: str, doc_names: list[str], k_per_doc: int = 3) -> list[dict]:
     """
     For comparison queries: retrieve top-k chunks from each document independently,
     guaranteeing representation from every document.
-    Chunks with score < MIN_SCORE are dropped.
     """
     query_embedding = _embed_query(query)
     col = _get_collection()
@@ -124,7 +120,7 @@ def retrieve_per_doc(query: str, doc_names: list[str], k_per_doc: int = 3) -> li
                 "source": meta["source"],
                 "score": round(1 - distance, 3),
             })
-        chunks.extend(c for c in doc_chunks if c["score"] >= MIN_SCORE)
+        chunks.extend(doc_chunks)
     return chunks
 
 
