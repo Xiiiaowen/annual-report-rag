@@ -35,6 +35,7 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Pre-loaded reports** — Apple and HSBC annual reports indexed on startup; demo works immediately
 - **Upload any PDF** — add your own annual reports via the sidebar; max 10 MB with the shared key, unlimited with your own key
 - **Bring your own API key** — paste your OpenAI key in the sidebar to use the app without restrictions and avoid shared key limits
+- **Streaming responses** — answers stream token by token as the LLM generates them, so results appear immediately rather than waiting for the full response
 - **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
 - **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
 - **Page-level citations** — every answer shows which document and page each fact came from

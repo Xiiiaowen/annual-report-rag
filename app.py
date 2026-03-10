@@ -21,7 +21,7 @@ except Exception:
 
 from rag.ingest import ingest, is_ingested, list_docs, delete_doc
 from rag.retriever import retrieve, retrieve_per_doc, is_comparison_query
-from rag.answerer import answer
+from rag.answerer import answer_stream
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 BUNDLED_DIR = os.path.join(os.path.dirname(__file__), "data", "reports")
@@ -168,16 +168,17 @@ if question:
     with st.chat_message("user"):
         st.write(question)
 
-    # Retrieve and answer
+    # Retrieve and stream answer
     with st.chat_message("assistant"):
-        with st.spinner("Searching and generating answer…"):
+        with st.spinner("Searching documents…"):
             doc_names = [d["doc_name"] for d in docs]
             if len(doc_names) > 1 and is_comparison_query(question, doc_names):
                 chunks = retrieve_per_doc(question, doc_names, k_per_doc=3)
             else:
                 chunks = retrieve(question, k=5)
-            result = answer(question, chunks, history=st.session_state.history)
-        st.write(result["answer"])
+            result = answer_stream(question, chunks, history=st.session_state.history)
+        # Spinner ends; stream the answer token by token
+        answer_text = st.write_stream(result["stream"])
         if result["sources"]:
             for src in result["sources"]:
                 with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
@@ -187,6 +188,6 @@ if question:
     st.session_state.history.append({"role": "user", "content": question})
     st.session_state.history.append({
         "role": "assistant",
-        "content": result["answer"],
+        "content": answer_text,
         "sources": result["sources"],
     })

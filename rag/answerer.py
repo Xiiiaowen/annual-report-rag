@@ -75,3 +75,66 @@ def answer(question: str, chunks: list[dict], history: list[dict] | None = None)
             })
 
     return {"answer": answer_text, "sources": sources}
+
+
+def answer_stream(question: str, chunks: list[dict], history: list[dict] | None = None) -> dict:
+    """
+    Like answer() but streams the LLM response token by token.
+    Returns {"stream": generator, "sources": list[dict]}
+    st.write_stream(result["stream"]) will render it and return the full text.
+    """
+    if not chunks:
+        def _empty():
+            yield "No relevant content found in the indexed documents."
+        return {"stream": _empty(), "sources": []}
+
+    context_parts = []
+    for i, chunk in enumerate(chunks, start=1):
+        context_parts.append(
+            f"[{i}] Source: {chunk['doc_name']}, page {chunk['page_num']}\n{chunk['text']}"
+        )
+    context = "\n\n---\n\n".join(context_parts)
+
+    system_prompt = (
+        "You are a financial analyst assistant. Answer the user's question using ONLY "
+        "the provided document excerpts. If the answer is not contained in the excerpts, "
+        "say so clearly — do not guess or use outside knowledge. "
+        "After your answer, list the sources you used in the format: "
+        "[doc_name, p.PAGE_NUM]"
+    )
+
+    user_prompt = f"Question: {question}\n\nDocument excerpts:\n\n{context}"
+
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        for msg in history[-6:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_prompt})
+
+    stream = _get_openai().chat.completions.create(
+        model=_MODEL,
+        messages=messages,
+        temperature=0,
+        stream=True,
+    )
+
+    def _gen():
+        for event in stream:
+            delta = event.choices[0].delta.content
+            if delta:
+                yield delta
+
+    # Sources are derived from chunks, not from the LLM response
+    seen = set()
+    sources = []
+    for chunk in chunks:
+        key = (chunk["doc_name"], chunk["page_num"])
+        if key not in seen:
+            seen.add(key)
+            sources.append({
+                "doc_name": chunk["doc_name"],
+                "page_num": chunk["page_num"],
+                "excerpt": chunk["text"][:300] + ("..." if len(chunk["text"]) > 300 else ""),
+            })
+
+    return {"stream": _gen(), "sources": sources}
