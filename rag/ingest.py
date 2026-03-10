@@ -11,6 +11,7 @@ _CHROMA_PATH = "chroma_db"
 _COLLECTION = "reports"
 _EMBED_MODEL = "text-embedding-3-small"
 _MAX_TOKENS_PER_CHUNK = 2000  # approx chars; split long pages in half
+_OVERLAP_CHARS = 200          # chars from previous page prepended to each chunk
 
 _client: OpenAI | None = None
 _chroma: chromadb.Collection | None = None
@@ -78,10 +79,15 @@ def ingest(pdf_path: str) -> int:
     name = _doc_name(pdf_path)
 
     chunks = []  # list of (id, text, metadata)
+    prev_tail = ""  # last N chars of previous page's plain text (for overlap)
 
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             text = (page.extract_text() or "").strip()
+
+            # Save plain-text tail before appending table data
+            # (overlap bridges natural prose, not table rows)
+            tail = text[-_OVERLAP_CHARS:] if len(text) > _OVERLAP_CHARS else text
 
             # Append structured table data (more accurate than plain text for tables)
             tables = page.extract_tables() or []
@@ -91,7 +97,14 @@ def ingest(pdf_path: str) -> int:
                 text = text + "\n\n[TABLE DATA]\n" + "\n\n".join(table_parts)
 
             if not text:
+                prev_tail = ""
                 continue
+
+            # Prepend previous page's tail to bridge page-boundary splits
+            if prev_tail:
+                text = f"[continued from previous page]\n{prev_tail}\n\n{text}"
+
+            prev_tail = tail
 
             # Split long pages into two halves to stay within token limits
             if len(text) > _MAX_TOKENS_PER_CHUNK:

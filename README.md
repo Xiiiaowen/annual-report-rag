@@ -41,7 +41,7 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Score threshold filtering** — retrieved chunks with cosine similarity below 0.30 are discarded before prompting the LLM, reducing noise and hallucination on off-topic questions; the top chunk is always kept as a fallback
 - **Page-level citations** — every answer shows which document, page, and relevance score each fact came from
 - **Smart multi-document retrieval** — regular questions search across all docs; comparison questions (e.g. "How do Apple and HSBC differ?") automatically retrieve from each document independently to guarantee balanced representation
-- **Section-aware chunking** — pages are the natural unit for annual reports; very long pages are split in half, both halves tagged with the same page number
+- **Section-aware chunking with overlap** — pages are the natural unit for annual reports; very long pages are split in half; the last 200 characters of each page's plain text are prepended to the next page's chunk so sentences and numbers that span a page boundary are not lost
 - **No hallucination** — LLM is instructed to answer only from context; unknown facts are acknowledged
 - **Persistent index** — ChromaDB vector store persists to disk; already-indexed documents are not re-embedded on re-run
 - **Remove uploaded reports** — user-uploaded documents can be removed from the index without affecting bundled reports
@@ -128,9 +128,6 @@ Pure cosine similarity can miss chunks that contain the exact keyword being sear
 
 **Cold-start cost on Streamlit Cloud**
 ChromaDB is gitignored and rebuilt from scratch on each cold start. This means every deployment cold start calls the embeddings API and takes ~30 seconds. A workaround is to commit a pre-built ChromaDB snapshot for the bundled reports so they do not need to be re-embedded.
-
-**Chunk overlap**
-The current chunking has no overlap between pages. If a sentence or table spans a page boundary, it gets split. Adding a small overlap (e.g. the last 200 characters of the previous page prepended to the next) would avoid missing context at page boundaries.
 
 ---
 
