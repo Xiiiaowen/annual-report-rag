@@ -39,8 +39,7 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Query rewriting** — before retrieval, GPT-4o-mini rewrites the question to expand financial synonyms (e.g. "net income" → "net income profit for the year net profit earnings") and resolve follow-up references using chat history; the rewritten query is shown under the answer for transparency
 - **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
 - **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
-- **Relevance scores** — every citation shows its cosine similarity score so users can see how closely the retrieved passage matched their query
-- **Page-level citations** — every answer shows which document, page, and relevance score each fact came from
+- **Page-level citations with relevance scores** — every answer shows which document and page each fact came from, along with the cosine similarity score of the retrieved chunk
 - **Smart multi-document retrieval** — regular questions search across all docs; comparison questions (e.g. "How do Apple and HSBC differ?") automatically retrieve from each document independently to guarantee balanced representation
 - **Section-aware chunking with overlap** — pages are the natural unit for annual reports; very long pages are split in half; the last 200 characters of each page's plain text are prepended to the next page's chunk so sentences and numbers that span a page boundary are not lost
 - **No hallucination** — LLM is instructed to answer only from context; unknown facts are acknowledged
