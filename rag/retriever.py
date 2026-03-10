@@ -23,7 +23,7 @@ def _embed_query(query: str) -> list[float]:
     return resp.data[0].embedding
 
 
-MIN_SCORE = 0.30  # chunks below this cosine similarity are considered off-topic
+MIN_SCORE = 0.20  # chunks below this cosine similarity are considered off-topic
 
 _REWRITE_SYSTEM = (
     "You are a search query optimizer for financial annual reports. "
