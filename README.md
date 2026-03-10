@@ -38,7 +38,7 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
 - **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
 - **Page-level citations** — every answer shows which document and page each fact came from
-- **Multi-document retrieval** — questions are answered across all indexed reports simultaneously
+- **Smart multi-document retrieval** — regular questions search across all docs; comparison questions (e.g. "How do Apple and HSBC differ?") automatically retrieve from each document independently to guarantee balanced representation
 - **Section-aware chunking** — pages are the natural unit for annual reports; very long pages are split in half, both halves tagged with the same page number
 - **No hallucination** — LLM is instructed to answer only from context; unknown facts are acknowledged
 - **Persistent index** — ChromaDB vector store persists to disk; already-indexed documents are not re-embedded on re-run
@@ -112,16 +112,14 @@ The bundled reports are indexed automatically on first run. This calls the embed
 
 - **RAG pipeline built from scratch** — no LangChain or LlamaIndex; every step (chunking, embedding, retrieval, prompting) is written explicitly, making the logic transparent and explainable
 - **Grounded answers with citations** — answers are traceable to specific pages; the LLM cannot fabricate facts outside the provided context
+- **Conversation memory** — rolling chat history passed to the LLM enables natural follow-up questions without repeating context
+- **Smart retrieval routing** — the app detects comparison queries and switches retrieval strategy automatically, guaranteeing balanced evidence from each document
 - **Section-aware chunking** — pages are used as the natural document boundary rather than arbitrary character counts, producing more coherent chunks and cleaner citations
-- **Multi-document retrieval** — a single query searches across all indexed reports simultaneously; the LLM synthesises across documents when relevant
 - **Cost-aware design** — `text-embedding-3-small` is used for embeddings (cheap, good quality); documents are only embedded once and cached to disk
 
 ---
 
 ## What Could Be Improved in Practice
-
-**Cross-document comparison**
-When a question asks to compare two companies (e.g. *"How do Apple and HSBC differ in their approach to sustainability?"*), the retriever returns the top-5 most similar chunks overall — which often all come from one document. A proper comparison query would need to deliberately retrieve from each document independently before synthesising.
 
 **Hybrid search (vector + keyword)**
 Pure cosine similarity can miss chunks that contain the exact keyword being searched, if the embedding similarity is slightly lower than other chunks. Production RAG systems combine vector search with BM25 keyword search (hybrid retrieval) to improve recall on exact-match queries.

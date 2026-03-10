@@ -19,7 +19,7 @@ except Exception:
     pass  # No secrets.toml locally — that's fine, .env is used instead
 
 from rag.ingest import ingest, is_ingested, list_docs, delete_doc
-from rag.retriever import retrieve
+from rag.retriever import retrieve, retrieve_per_doc, is_comparison_query
 from rag.answerer import answer
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -165,7 +165,11 @@ if question:
     # Retrieve and answer
     with st.chat_message("assistant"):
         with st.spinner("Searching and generating answer…"):
-            chunks = retrieve(question, k=5)
+            doc_names = [d["doc_name"] for d in docs]
+            if len(doc_names) > 1 and is_comparison_query(question, doc_names):
+                chunks = retrieve_per_doc(question, doc_names, k_per_doc=3)
+            else:
+                chunks = retrieve(question, k=5)
             result = answer(question, chunks, history=st.session_state.history)
         st.write(result["answer"])
         if result["sources"]:
