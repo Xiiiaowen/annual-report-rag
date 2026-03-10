@@ -5,6 +5,7 @@ Annual Report Q&A — Streamlit UI
 import os
 import glob
 import tempfile
+import time
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -115,14 +116,19 @@ def _ingest_bundled():
     )
 
     progress = st.progress(0, text="Starting…")
+    status = st.empty()
     total = len(pending)
 
     for i, pdf in enumerate(pending):
         name = os.path.basename(pdf)
         progress.progress(i / total, text=f"Step {i+1}/{total} — Parsing and embedding **{name}**…")
+        status.caption("⏳ Sending pages to OpenAI for embedding — this step takes 10–20 seconds, please wait…")
         n = ingest(pdf)
-        progress.progress((i + 1) / total, text=f"✅ {name} indexed ({n} pages)")
+        progress.progress((i + 1) / total, text=f"✅ {name} indexed ({n} chunks)")
 
+    status.empty()
+    progress.progress(1.0, text="✅ All reports indexed — loading chat interface…")
+    time.sleep(1.5)
     progress.empty()
     st.rerun()
 
