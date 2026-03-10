@@ -38,7 +38,8 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Streaming responses** — answers stream token by token as the LLM generates them, so results appear immediately rather than waiting for the full response
 - **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
 - **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
-- **Page-level citations** — every answer shows which document and page each fact came from
+- **Score threshold filtering** — retrieved chunks with cosine similarity below 0.30 are discarded before prompting the LLM, reducing noise and hallucination on off-topic questions; the top chunk is always kept as a fallback
+- **Page-level citations** — every answer shows which document, page, and relevance score each fact came from
 - **Smart multi-document retrieval** — regular questions search across all docs; comparison questions (e.g. "How do Apple and HSBC differ?") automatically retrieve from each document independently to guarantee balanced representation
 - **Section-aware chunking** — pages are the natural unit for annual reports; very long pages are split in half, both halves tagged with the same page number
 - **No hallucination** — LLM is instructed to answer only from context; unknown facts are acknowledged

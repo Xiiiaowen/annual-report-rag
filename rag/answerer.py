@@ -134,6 +134,7 @@ def answer_stream(question: str, chunks: list[dict], history: list[dict] | None 
             sources.append({
                 "doc_name": chunk["doc_name"],
                 "page_num": chunk["page_num"],
+                "score": chunk.get("score"),
                 "excerpt": chunk["text"][:300] + ("..." if len(chunk["text"]) > 300 else ""),
             })
 

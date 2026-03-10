@@ -157,7 +157,7 @@ for msg in st.session_state.history:
         st.write(msg["content"])
         if msg.get("sources"):
             for src in msg["sources"]:
-                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
+                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}  (score {src['score']:.2f})" if src.get("score") is not None else f"📄 {src['doc_name']}  —  page {src['page_num']}"):
                     st.caption(src["excerpt"])
 
 # ── Chat input ────────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ if question:
         answer_text = st.write_stream(result["stream"])
         if result["sources"]:
             for src in result["sources"]:
-                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
+                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}  (score {src['score']:.2f})" if src.get("score") is not None else f"📄 {src['doc_name']}  —  page {src['page_num']}"):
                     st.caption(src["excerpt"])
 
     # Save to history

@@ -23,9 +23,13 @@ def _embed_query(query: str) -> list[float]:
     return resp.data[0].embedding
 
 
+MIN_SCORE = 0.30  # chunks below this cosine similarity are considered off-topic
+
+
 def retrieve(query: str, k: int = 5) -> list[dict]:
     """
     Embed the query and return the top-k most similar chunks across all docs.
+    Chunks with score < MIN_SCORE are dropped; the best chunk is always kept.
     Each result: {text, doc_name, page_num, source, score}
     """
     query_embedding = _embed_query(query)
@@ -49,13 +53,16 @@ def retrieve(query: str, k: int = 5) -> list[dict]:
             "source": meta["source"],
             "score": round(1 - distance, 3),
         })
-    return chunks
+
+    filtered = [c for c in chunks if c["score"] >= MIN_SCORE]
+    return filtered if filtered else chunks[:1]
 
 
 def retrieve_per_doc(query: str, doc_names: list[str], k_per_doc: int = 3) -> list[dict]:
     """
     For comparison queries: retrieve top-k chunks from each document independently,
     guaranteeing representation from every document.
+    Chunks with score < MIN_SCORE are dropped; the best chunk per doc is always kept.
     """
     query_embedding = _embed_query(query)
     col = _get_collection()
@@ -67,18 +74,21 @@ def retrieve_per_doc(query: str, doc_names: list[str], k_per_doc: int = 3) -> li
             where={"doc_name": doc_name},
             include=["documents", "metadatas", "distances"],
         )
+        doc_chunks = []
         for text, meta, distance in zip(
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
         ):
-            chunks.append({
+            doc_chunks.append({
                 "text": text,
                 "doc_name": meta["doc_name"],
                 "page_num": meta["page_num"],
                 "source": meta["source"],
                 "score": round(1 - distance, 3),
             })
+        filtered = [c for c in doc_chunks if c["score"] >= MIN_SCORE]
+        chunks.extend(filtered if filtered else doc_chunks[:1])
     return chunks
 
 
