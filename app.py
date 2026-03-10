@@ -12,8 +12,11 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # Streamlit Cloud: inject secrets into os.environ so rag/ modules can read them
-if "OPENAI_API_KEY" in st.secrets:
-    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass  # No secrets.toml locally — that's fine, .env is used instead
 
 from rag.ingest import ingest, is_ingested, list_docs, delete_doc
 from rag.retriever import retrieve
@@ -30,27 +33,6 @@ st.set_page_config(page_title="Annual Report Q&A", page_icon="📄", layout="wid
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.title("📄 Annual Report Q&A")
-    st.caption("Ask questions across indexed annual reports. Answers include page citations.")
-
-    st.divider()
-
-    # ── User API key ──────────────────────────────────────────────────────────
-    st.subheader("🔑 Your OpenAI API key (optional)")
-    st.caption(
-        "The app runs on a shared key with a usage limit. "
-        "Paste your own key below to use the app without restrictions."
-    )
-    user_key = st.text_input(
-        "OpenAI API key",
-        type="password",
-        placeholder="sk-...",
-        label_visibility="collapsed",
-    )
-    if user_key.strip():
-        os.environ["OPENAI_API_KEY"] = user_key.strip()
-        st.success("Using your API key for this session.", icon="✅")
-
-    st.divider()
 
     # ── Indexed documents ─────────────────────────────────────────────────────
     st.subheader("Indexed documents")
@@ -64,9 +46,20 @@ with st.sidebar:
     st.divider()
 
     # ── Upload new PDFs ───────────────────────────────────────────────────────
-    st.subheader("Upload a report")
-    st.caption(f"PDF only · max {MAX_UPLOAD_MB} MB with shared key · unlimited with your own key")
-    uploaded = st.file_uploader("Add a PDF annual report", type="pdf", accept_multiple_files=True)
+    with st.expander("🔑 OpenAI API key (optional)"):
+        user_key = st.text_input(
+            "OpenAI API key",
+            type="password",
+            placeholder="sk-… (uses shared key if blank)",
+            label_visibility="collapsed",
+        )
+        if user_key.strip():
+            os.environ["OPENAI_API_KEY"] = user_key.strip()
+            st.success("Using your API key.", icon="✅")
+
+    with st.expander("📂 Upload a report"):
+        st.caption(f"PDF · max {MAX_UPLOAD_MB} MB with shared key · unlimited with own key")
+        uploaded = st.file_uploader("Add a PDF annual report", type="pdf", accept_multiple_files=True)
     if uploaded:
         using_own_key = bool(user_key.strip())
         for f in uploaded:
@@ -88,8 +81,6 @@ with st.sidebar:
                 st.toast(f"Indexed {f.name} ({n} chunks)", icon="✅")
                 st.rerun()
 
-    st.divider()
-
     # ── Remove uploaded (non-bundled) docs ────────────────────────────────────
     bundled_basenames = {
         os.path.splitext(os.path.basename(p))[0]
@@ -98,17 +89,16 @@ with st.sidebar:
     }
     user_docs = [d for d in docs if d["doc_name"] not in bundled_basenames]
     if user_docs:
-        st.subheader("Remove uploaded reports")
-        for doc in user_docs:
-            if st.button(f"Remove {doc['doc_name']}", key=f"del_{doc['doc_name']}"):
-                delete_doc(doc["doc_name"])
-                pdf_path = os.path.join(BUNDLED_DIR, doc["doc_name"] + ".pdf")
-                if os.path.exists(pdf_path):
-                    os.remove(pdf_path)
-                st.rerun()
+        with st.expander("🗑️ Remove uploaded reports"):
+            for doc in user_docs:
+                if st.button(f"Remove {doc['doc_name']}", key=f"del_{doc['doc_name']}"):
+                    delete_doc(doc["doc_name"])
+                    pdf_path = os.path.join(BUNDLED_DIR, doc["doc_name"] + ".pdf")
+                    if os.path.exists(pdf_path):
+                        os.remove(pdf_path)
+                    st.rerun()
 
-    st.divider()
-    st.caption("Powered by GPT-4o-mini + ChromaDB + pdfplumber")
+    st.caption("GPT-4o-mini · ChromaDB · pdfplumber")
 
 # ── Auto-ingest bundled reports on startup ───────────────────────────────────
 def _ingest_bundled():
@@ -145,22 +135,48 @@ if not docs:
     st.info("No documents indexed yet. Upload a PDF in the sidebar to get started.")
     st.stop()
 
-question = st.text_input(
-    "Question",
-    placeholder="e.g. What was Apple's total revenue last fiscal year?",
-    label_visibility="collapsed",
-)
+# ── Session state ─────────────────────────────────────────────────────────────
+if "history" not in st.session_state:
+    st.session_state.history = []  # list of {role, content, sources?}
+
+# Clear conversation button
+if st.session_state.history:
+    if st.button("Clear conversation", icon="🗑️"):
+        st.session_state.history = []
+        st.rerun()
+
+# ── Display chat history ───────────────────────────────────────────────────────
+for msg in st.session_state.history:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+        if msg.get("sources"):
+            for src in msg["sources"]:
+                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
+                    st.caption(src["excerpt"])
+
+# ── Chat input ────────────────────────────────────────────────────────────────
+question = st.chat_input("Ask a question about the reports…")
 
 if question:
-    with st.spinner("Searching and generating answer…"):
-        chunks = retrieve(question, k=5)
-        result = answer(question, chunks)
+    # Show user message immediately
+    with st.chat_message("user"):
+        st.write(question)
 
-    st.markdown("### Answer")
-    st.write(result["answer"])
+    # Retrieve and answer
+    with st.chat_message("assistant"):
+        with st.spinner("Searching and generating answer…"):
+            chunks = retrieve(question, k=5)
+            result = answer(question, chunks, history=st.session_state.history)
+        st.write(result["answer"])
+        if result["sources"]:
+            for src in result["sources"]:
+                with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
+                    st.caption(src["excerpt"])
 
-    if result["sources"]:
-        st.markdown("### Sources")
-        for src in result["sources"]:
-            with st.expander(f"📄 {src['doc_name']}  —  page {src['page_num']}"):
-                st.caption(src["excerpt"])
+    # Save to history
+    st.session_state.history.append({"role": "user", "content": question})
+    st.session_state.history.append({
+        "role": "assistant",
+        "content": result["answer"],
+        "sources": result["sources"],
+    })

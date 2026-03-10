@@ -16,9 +16,10 @@ def _get_openai() -> OpenAI:
     return _client
 
 
-def answer(question: str, chunks: list[dict]) -> dict:
+def answer(question: str, chunks: list[dict], history: list[dict] | None = None) -> dict:
     """
     Generate an answer grounded in the retrieved chunks.
+    history: list of {"role": "user"|"assistant", "content": str} from previous turns.
     Returns {answer: str, sources: list[dict]}
     """
     if not chunks:
@@ -45,12 +46,16 @@ def answer(question: str, chunks: list[dict]) -> dict:
 
     user_prompt = f"Question: {question}\n\nDocument excerpts:\n\n{context}"
 
+    # Build messages: system + last 3 exchanges of history + current question+context
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        for msg in history[-6:]:  # last 3 exchanges (6 messages)
+            messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_prompt})
+
     response = _get_openai().chat.completions.create(
         model=_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
+        messages=messages,
         temperature=0,
     )
 

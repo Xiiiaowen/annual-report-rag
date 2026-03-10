@@ -35,6 +35,8 @@ The key difference from a naive chatbot: the LLM only answers from the retrieved
 - **Pre-loaded reports** — Apple and HSBC annual reports indexed on startup; demo works immediately
 - **Upload any PDF** — add your own annual reports via the sidebar; max 10 MB with the shared key, unlimited with your own key
 - **Bring your own API key** — paste your OpenAI key in the sidebar to use the app without restrictions and avoid shared key limits
+- **Chat history** — follow-up questions work naturally; the last 3 exchanges are included in each prompt so the LLM understands context like "What about the year before?"
+- **Table-aware extraction** — financial tables (income statements, balance sheets) are extracted as structured row-by-row text in addition to page text, improving accuracy on numerical questions
 - **Page-level citations** — every answer shows which document and page each fact came from
 - **Multi-document retrieval** — questions are answered across all indexed reports simultaneously
 - **Section-aware chunking** — pages are the natural unit for annual reports; very long pages are split in half, both halves tagged with the same page number
@@ -117,12 +119,6 @@ The bundled reports are indexed automatically on first run. This calls the embed
 ---
 
 ## What Could Be Improved in Practice
-
-**Chat history / follow-up questions**
-Each question is currently independent. There is no conversation memory, so follow-up questions like *"What about the year before?"* or *"Can you explain that in more detail?"* do not work. Adding a rolling context window of the last few Q&A pairs into the prompt would enable natural multi-turn conversations.
-
-**Table extraction**
-Annual reports contain financial tables (income statements, balance sheets, segment breakdowns). `pdfplumber` has a `extract_tables()` method but the current implementation uses `extract_text()` only. Table data is often garbled when converted to plain text, which hurts accuracy on numerical questions. Proper table-to-text conversion (e.g. converting each row to a sentence) would significantly improve financial Q&A quality.
 
 **Cross-document comparison**
 When a question asks to compare two companies (e.g. *"How do Apple and HSBC differ in their approach to sustainability?"*), the retriever returns the top-5 most similar chunks overall — which often all come from one document. A proper comparison query would need to deliberately retrieve from each document independently before synthesising.

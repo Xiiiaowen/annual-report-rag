@@ -40,6 +40,27 @@ def _doc_name(pdf_path: str) -> str:
     return os.path.splitext(os.path.basename(pdf_path))[0]
 
 
+def _table_to_text(table: list[list]) -> str:
+    """Convert a pdfplumber table (list of rows) to pipe-separated readable text."""
+    if not table:
+        return ""
+    headers = [str(c or "").strip() for c in table[0]]
+    rows = []
+    for i, row in enumerate(table):
+        cells = [str(c or "").strip() for c in row]
+        if not any(cells):
+            continue
+        if i == 0:
+            continue  # skip header row; used as column labels below
+        if any(headers):
+            parts = [f"{h}: {c}" for h, c in zip(headers, cells) if h and c]
+        else:
+            parts = [c for c in cells if c]
+        if parts:
+            rows.append(" | ".join(parts))
+    return "\n".join(rows)
+
+
 def is_ingested(pdf_path: str) -> bool:
     """Return True if this PDF has already been indexed."""
     col = _get_collection()
@@ -61,6 +82,14 @@ def ingest(pdf_path: str) -> int:
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             text = (page.extract_text() or "").strip()
+
+            # Append structured table data (more accurate than plain text for tables)
+            tables = page.extract_tables() or []
+            table_parts = [_table_to_text(t) for t in tables]
+            table_parts = [t for t in table_parts if t]
+            if table_parts:
+                text = text + "\n\n[TABLE DATA]\n" + "\n\n".join(table_parts)
+
             if not text:
                 continue
 
