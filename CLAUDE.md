@@ -118,8 +118,9 @@ No other keys needed. ChromaDB is local. PDFs are bundled.
 
 ## What to Gitignore
 
-- `chroma_db/` — rebuilt automatically, no need to commit
 - `.env`
+- `chroma_db/` is intentionally committed — it contains the pre-built snapshot for bundled reports
+- To rebuild the snapshot: `OPENAI_API_KEY=sk-... python scripts/build_snapshot.py` then commit chroma_db/
 
 ## Code Style
 
