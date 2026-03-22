@@ -6,6 +6,8 @@ Pre-loaded with Apple and HSBC annual reports. Upload your own PDFs to query any
 
 **[▶ Live Demo](https://annual-report-rag-l8aogwvfxwzneatnebkguj.streamlit.app/)**
 
+![Annual Report Q&A](photo/annual-report-rag.png)
+
 ---
 
 ## How It Works
@@ -71,7 +73,7 @@ annual-report-rag/
 │   └── answerer.py         # Build prompt, call GPT-4o-mini, return answer + citations
 ├── data/
 │   └── reports/            # Pre-loaded PDFs (Apple 2025, HSBC 2025)
-├── chroma_db/              # Vector store — gitignored, rebuilt automatically
+├── chroma_db/              # Vector store — pre-built snapshot committed for bundled reports
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -126,8 +128,8 @@ The bundled reports are indexed automatically on first run. This calls the embed
 **Hybrid search (vector + keyword)**
 Pure cosine similarity can miss chunks that contain the exact keyword being searched, if the embedding similarity is slightly lower than other chunks. Production RAG systems combine vector search with BM25 keyword search (hybrid retrieval) to improve recall on exact-match queries.
 
-**Cold-start cost on Streamlit Cloud**
-ChromaDB is gitignored and rebuilt from scratch on each cold start. This means every deployment cold start calls the embeddings API and takes ~30 seconds. A workaround is to commit a pre-built ChromaDB snapshot for the bundled reports so they do not need to be re-embedded.
+**Cold-start on Streamlit Cloud**
+A pre-built ChromaDB snapshot for the bundled reports is committed to the repo, so bundled reports do not need to be re-embedded on each cold start. User-uploaded documents are ephemeral and must be re-uploaded after the app sleeps.
 
 ---
 
